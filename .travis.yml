@@ -1,0 +1,35 @@
+sudo: required
+services:
+  - docker
+
+before_install:
+  - docker build -t lioartoil/react-test -f ./client/Dockerfile.dev ./client
+
+script:
+  - docker run lioartoil/react-test npm test -- --coverage
+
+after_success:
+  - docker build -t lioartoil/multi-client ./client
+  - docker build -t lioartoil/multi-nginx ./nginx
+  - docker build -t lioartoil/multi-server ./server
+  - docker build -t lioartoil/multi-worker ./worker
+  # Log in to the docker CLI
+  - echo "$DOCKER_PASSWORD" | docker login -u "$DOCKER_ID" --password-stdin
+  # Take those images and push them to dokcer hub
+  - docker push lioartoil/multi-client
+  - docker push lioartoil/multi-nginx
+  - docker push lioartoil/multi-server
+  - docker push lioartoil/multi-worker
+
+deploy:
+  provider: elasticbeanstalk
+  region: ap-southeast-1
+  app: multi-docker
+  env: MultiDocker-env
+  bucket_name: elasticbeanstalk-ap-southeast-1-269289338900
+  bucket_path: docker-multi
+  on:
+    branch: master
+  access_key_id: $AWS_ACCESS_KEY
+  secret_access_key:
+    secure: $AWS_SECRET_KEY
